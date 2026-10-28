@@ -4,13 +4,12 @@ import Mathlib.LinearAlgebra.CliffordAlgebra.Conjugation
 import Mathlib.Tactic
 
 /-!
-  # Lean 4 tutorial 2 (Deep Dive):
+  # Lean 4 Checkpoint 1 (Corrected):
   Universal Uniqueness, Graded Symmetries, Lie Brackets & the Clifford Norm
 
   Instructions:
   Each part provides an **ARSENAL** of definitions, lemmas, and tactics.
-  No step-by-step instructions are given—combine the tools in the Arsenal
-  with your InfoView to construct each proof.
+  Combine the tools in the Arsenal with your InfoView to construct each proof.
 -/
 
 namespace CliffordCheckpoint1
@@ -33,13 +32,13 @@ open CliffordAlgebra
   - `CliffordAlgebra.lift Q ⟨f, hf⟩ : CliffordAlgebra Q →ₐ[R] A`
   - `lift_ι_apply f hf x : CliffordAlgebra.lift Q ⟨f, hf⟩ (ι Q x) = f x`
 
-  **2. Uniqueness (`CliffordAlgebra.hom_ext` / `ext`)**
+  **2. Uniqueness (`CliffordAlgebra.hom_ext` / `ext` + `dsimp`)**
   Because `M` generates `CliffordAlgebra Q`, two `R`-algebra homomorphisms
   `g₁ g₂ : CliffordAlgebra Q →ₐ[R] A` are equal on ALL multivectors if and only
   if they agree on generators `ι Q x`:
-  - Tactic `ext x` (when the goal is `g₁ = g₂` for `AlgHom`s out of `CliffordAlgebra Q`):
-    Automatically applies `CliffordAlgebra.hom_ext` and reduces the goal to
-    proving `g₁ (ι Q x) = g₂ (ι Q x)`.
+  - `ext x`: Applies `hom_ext`.
+  - `dsimp`: Essential immediately after `ext x` to strip away the internal
+    linear map composition packaging (`toLinearMap ∘ₗ ι Q`).
 
   **3. Algebra Homomorphism Composition & Identity (`AlgHom`)**
   For `g : B →ₐ[R] C` and `f : A →ₐ[R] B`:
@@ -47,10 +46,10 @@ open CliffordAlgebra
   - `AlgHom.comp_apply g f x : (g.comp f) x = g (f x)`
   - `AlgHom.id R A : A →ₐ[R] A`
   - `AlgHom.id_apply x : (AlgHom.id R A) x = x`
-  - `AlgHom.commutes g r : g (algebraMap R B r) = algebraMap R C r`
+  - `g.commutes r : g (algebraMap R B r) = algebraMap R C r`
 
   **4. Parity (`involute`)**
-  - `involute : CliffordAlgebra Q →ₐ[R] CliffordAlgebra Q`
+  - `involute : CliffordAlgebra Q ≃ₐ[R] CliffordAlgebra Q`
   - `involute_ι m : involute (ι Q m) = - ι Q m`
 -/
 
@@ -69,8 +68,8 @@ theorem hom_restricts_to_clifford (A : Type*) [Ring A] [Algebra R A]
 /- EXERCISE 1B: Proving `involute ∘ involute = id` via Universal Uniqueness!
    Do NOT use Mathlib's pre-baked `involute_involute` lemma here.
    Instead, prove that the composite homomorphism `involute.comp involute` is
-   equal to the identity homomorphism `AlgHom.id R (CliffordAlgebra Q)` across
-   the ENTIRE Clifford algebra by checking it purely on generators!
+   equal to the identity homomorphism across the ENTIRE Clifford algebra by
+   checking it purely on generators (`ext x`, then `dsimp`!).
 -/
 theorem involute_comp_involute_eq_id :
     (involute (Q := Q)).comp (involute (Q := Q)) =
@@ -84,7 +83,6 @@ theorem involute_comp_involute_eq_id :
    Prove that lifting `-f` is globally identical to lifting `f` and
    pre-composing with the parity automorphism `involute`:
      `lift Q ⟨-f, hf_neg⟩ = (lift Q ⟨f, hf⟩).comp involute`
-   (Think of the commutative diagram!)
 -/
 theorem lift_neg_eq_lift_comp_involute {A : Type*} [Ring A] [Algebra R A]
     (f : M →ₗ[R] A)
@@ -103,8 +101,8 @@ theorem lift_neg_eq_lift_comp_involute {A : Type*} [Ring A] [Algebra R A]
   ### THE ARSENAL (Part 2)
 
   **1. Homomorphism Laws of `involute`**
-  Because `involute : CliffordAlgebra Q →ₐ[R] CliffordAlgebra Q` is an algebra
-  homomorphism, all standard `map_*` lemmas apply:
+  Because `involute : CliffordAlgebra Q ≃ₐ[R] CliffordAlgebra Q` is an algebra
+  equivalence, standard polymorphic structure-preserving lemmas apply:
   - `map_add involute a b : involute (a + b) = involute a + involute b`
   - `map_sub involute a b : involute (a - b) = involute a - involute b`
   - `map_mul involute a b : involute (a * b) = involute a * involute b`
@@ -112,10 +110,9 @@ theorem lift_neg_eq_lift_comp_involute {A : Type*} [Ring A] [Algebra R A]
   - `involute_ι x         : involute (ι Q x) = - ι Q x`
   - `involute_involute a  : involute (involute a) = a`
 
-  **2. Ring & Sign Tactics**
-  - `noncomm_ring` : Simplifies non-commutative ring expressions, including
-                     `(-a) * (-b) = a * b`, `(-a) * b = - (a * b)`, etc.
-  - `abel`         : Simplifies additive group expressions.
+  **2. Automation Tactics**
+  - `noncomm_ring` : Normalizes signs and ring axioms (e.g., `(-a) * (-b) = a * b`).
+  - `abel`         : Solves additive abelian group equalities.
 -/
 
 /- EXERCISE 2A: The Bivector Commutator `[ι x, ι y]` is Even (Bosonic)
@@ -130,11 +127,10 @@ theorem involute_vector_commutator (x y : M) :
 
 
 /- EXERCISE 2B: General ℤ₂-Grading Multiplication Rule (Odd × Odd = Even)
-   Suppose `a, b : CliffordAlgebra Q` are ANY two odd multivectors (for example,
-   sums of vectors and trivectors), characterized by the eigenvalue equations:
+   Suppose `a, b : CliffordAlgebra Q` are ANY two odd multivectors,
+   characterized by the eigenvalue equations:
      `ha : involute a = -a`  and  `hb : involute b = -b`.
-   Prove that their product `a * b` is an EVEN multivector (`involute (a * b) = a * b`),
-   and their commutator `a * b - b * a` is also EVEN!
+   Prove that their product `a * b` is an EVEN multivector (`involute (a * b) = a * b`).
 -/
 theorem odd_mul_odd_is_even (a b : CliffordAlgebra Q)
     (ha : involute a = -a) (hb : involute b = -b) :
@@ -143,10 +139,8 @@ theorem odd_mul_odd_is_even (a b : CliffordAlgebra Q)
 
 
 /- EXERCISE 2C: Parity Projection Annihilation
-   For any multivector `x : CliffordAlgebra Q`, `(x + involute x)` projects onto
-   the even part (up to a factor of 2) and `(x - involute x)` projects onto the
-   odd part. Prove that applying `involute` to the odd projection `(x - involute x)`
-   flips its sign!
+   For any multivector `x : CliffordAlgebra Q`, `(x - involute x)` projects onto
+   the odd subspace. Prove that applying `involute` to this projection flips its sign.
 -/
 theorem involute_odd_projection (x : CliffordAlgebra Q) :
     involute (x - involute x) = - (x - involute x) := by
@@ -162,15 +156,16 @@ theorem involute_odd_projection (x : CliffordAlgebra Q) :
 
   **1. Properties of `reverse` (The Anti-Automorphism τ)**
   `reverse : CliffordAlgebra Q →ₗ[R] CliffordAlgebra Q` is a linear map that
-  reverses the order of multiplication:
-  - `reverse_ι x         : reverse (ι Q x) = ι Q x`
-  - `reverse_mul a b     : reverse (a * b) = reverse b * reverse a`
-  - `reverse_reverse a   : reverse (reverse a) = a`
-  - `reverse_involute a  : reverse (involute a) = involute (reverse a)`
-  - `reverse_commutes r  : reverse (algebraMap R (CliffordAlgebra Q) r) = algebraMap R (CliffordAlgebra Q) r`
-  - `map_add reverse a b : reverse (a + b) = reverse a + reverse b`
-  - `map_sub reverse a b : reverse (a - b) = reverse a - reverse b`
-  - `map_neg reverse a   : reverse (-a) = - (reverse a)`
+  inverts multiplication order:
+  - `reverse_ι x            : reverse (ι Q x) = ι Q x`
+  - `reverse.map_mul a b    : reverse (a * b) = reverse b * reverse a`  [Notice the dot!]
+  - `reverse_reverse a      : reverse (reverse a) = a`
+  - `reverse_involute a     : reverse (involute a) = involute (reverse a)`
+  - `← reverse_involute a   : involute (reverse a) = reverse (involute a)`
+  - `reverse_algebraMap r   : reverse (algebraMap R (CliffordAlgebra Q) r) = algebraMap R (CliffordAlgebra Q) r`
+  - `map_add reverse a b    : reverse (a + b) = reverse a + reverse b`
+  - `map_sub reverse a b    : reverse (a - b) = reverse a - reverse b`
+  - `map_neg reverse a      : reverse (-a) = - (reverse a)`
 -/
 
 /- EXERCISE 3A: Separating Scalars from Bivectors with `reverse`
@@ -186,13 +181,10 @@ theorem reverse_vector_commutator (x y : M) :
 
 
 /- EXERCISE 3B: Closure of the Bivector Lie Bracket under Reversion!
-   In general, if `B₁` and `B₂` are bivectors, their associative product `B₁ * B₂`
-   is NOT a pure bivector (it contains scalar, bivector, and 4-vector parts).
-   However, prove that if `B₁` and `B₂` are ANY two elements in the `-1` eigenspace
+   Prove that if `B₁` and `B₂` are ANY two elements in the `-1` eigenspace
    of `reverse` (`h₁ : reverse B₁ = -B₁` and `h₂ : reverse B₂ = -B₂`), then their
    Lie bracket (commutator) `B₁ * B₂ - B₂ * B₁` ALSO lies in the `-1` eigenspace
    of `reverse`!
-   (This is the core algebraic reason why bivectors form a closed Lie subalgebra).
 -/
 theorem reverse_lie_bracket (B₁ B₂ : CliffordAlgebra Q)
     (h₁ : reverse B₁ = -B₁) (h₂ : reverse B₂ = -B₂) :
@@ -233,8 +225,7 @@ theorem cliffConj_mul (a b : CliffordAlgebra Q) :
 
 /- EXERCISE 4B: Clifford Conjugation is an Involution (`x̿ = x`)
    Prove that applying `cliffConj` twice returns the original multivector `x`.
-   (Hint: Notice how `reverse_involute` lets `reverse` and `involute` pass
-   through each other!)
+   (Hint: Use `reverse_involute` or `← reverse_involute` to commute the maps!)
 -/
 theorem cliffConj_cliffConj (x : CliffordAlgebra Q) :
     cliffConj (cliffConj x) = x := by
@@ -261,12 +252,13 @@ theorem cliffConj_ortho_blade (x y : M)
   ### THE ARSENAL (Part 5)
 
   **1. Centrality of Embedded Scalars (`Algebra.commutes`)**
-  In any `R`-algebra `A`, scalars embedded via `algebraMap R A r` lie in the
-  center of the algebra—they commute with EVERY multivector `z`:
+  Scalars embedded via `algebraMap R A r` commute with every multivector `z`:
   - `Algebra.commutes r z : algebraMap R A r * z = z * algebraMap R A r`
+  - `← Algebra.commutes r z : z * algebraMap R A r = algebraMap R A r * z`
 
-  **2. Associativity & Homomorphism Properties of `algebraMap`**
+  **2. Associativity & Sign Manipulation**
   - `mul_assoc a b c : a * b * c = a * (b * c)`
+  - `← mul_assoc a b c : a * (b * c) = a * b * c`
   - `map_neg (algebraMap R (CliffordAlgebra Q)) r`
   - `ι_sq_scalar Q x : ι Q x * ι Q x = algebraMap R (CliffordAlgebra Q) (Q x)`
 -/
@@ -290,14 +282,10 @@ theorem cliffNorm_vector (v : M) :
 
 
 /- EXERCISE 5B (BOSS LEVEL): Multiplicativity of the Clifford Norm!
-   In a non-commutative algebra, `(x * y) * cliffConj (x * y)` expands to
-   `x * (y * cliffConj y) * cliffConj x`.
    Prove that whenever `y` has a scalar Clifford norm
    (`hy : cliffNorm y = algebraMap R (CliffordAlgebra Q) r`), the norm of the
    product factors cleanly as:
      `cliffNorm (x * y) = cliffNorm x * cliffNorm y`!
-   (In Phase 3, this exact theorem guarantees that products of rotors and
-   reflections preserve the norm and form the groups Pin(M, Q) and Spin(M, Q)).
 -/
 theorem cliffNorm_mul_of_scalar (x y : CliffordAlgebra Q) (r : R)
     (hy : cliffNorm y = algebraMap R (CliffordAlgebra Q) r) :
